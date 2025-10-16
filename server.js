@@ -18,16 +18,22 @@ app.post('/api/chat', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   
   try {
-    const { message } = req.body;
+    const { message, conversationHistory } = req.body;
 
     if (!message) {
       return res.status(400).json({ error: 'Message is required' });
     }
 
+    // Construir el historial: mensajes anteriores + nuevo mensaje
+    const messages = [
+      ...conversationHistory,
+      { role: 'user', content: message }
+    ];
+
     const response = await client.messages.create({
       model: 'claude-opus-4-1',
       max_tokens: 1024,
-      messages: [{ role: 'user', content: message }],
+      messages: messages,
     });
 
     res.json({ response: response.content[0].text });
