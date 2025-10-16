@@ -1,7 +1,9 @@
+cat > package.json << 'EOF'
 {
   "name": "chatbot-claude-apliclor",
   "version": "1.0.0",
   "description": "Chatbot técnico con Claude API para Apliclor",
+  "license": "MIT",
   "type": "module",
   "main": "server.js",
   "scripts": {
@@ -16,3 +18,4 @@
     "node": "22.x"
   }
 }
+EOF
