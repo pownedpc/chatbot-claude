@@ -164,7 +164,6 @@
       font-style: italic;
     }
 
-    /* Scrollbar personalizado */
     .chat-messages::-webkit-scrollbar {
       width: 8px;
     }
@@ -210,69 +209,46 @@
   </div>
 
   <script>
-    // Inicialización robusta del historial de conversación
+    // VARIABLES GLOBALES - DECLARADAS AL INICIO
     let conversationHistory = [];
-    
-    // Intentar cargar historial desde localStorage
-    try {
-      const savedHistory = localStorage.getItem('chatHistory');
-      if (savedHistory) {
-        const parsed = JSON.parse(savedHistory);
-        if (Array.isArray(parsed)) {
-          conversationHistory = parsed;
-          
-          // Restaurar mensajes en la UI
-          conversationHistory.forEach(msg => {
-            if (msg.role === 'user') {
-              addMessage(msg.content, 'user');
-            } else if (msg.role === 'assistant') {
-              addMessage(msg.content, 'assistant');
-            }
-          });
-        }
-      }
-    } catch (e) {
-      console.warn('No se pudo cargar el historial:', e);
-      conversationHistory = [];
-    }
-
     const userInput = document.getElementById('userInput');
     const sendButton = document.getElementById('sendButton');
     const chatMessages = document.getElementById('chatMessages');
 
+    // CARGAR HISTORIAL AL INICIO
+    function loadHistory() {
+      try {
+        const saved = localStorage.getItem('chatHistory');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            conversationHistory = parsed;
+            parsed.forEach(msg => {
+              if (msg.role === 'user') addMessageToUI(msg.content, 'user');
+              else if (msg.role === 'assistant') addMessageToUI(msg.content, 'assistant');
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('No se pudo cargar historial:', e);
+        conversationHistory = [];
+      }
+    }
+
+    // ENVIAR MENSAJE
     async function sendMessage() {
       const message = userInput.value.trim();
-
       if (!message) return;
 
-      // Deshabilitar input mientras procesa
       userInput.disabled = true;
       sendButton.disabled = true;
 
-      // Asegurar que conversationHistory es un array
-      if (!Array.isArray(conversationHistory)) {
-        console.warn('conversationHistory no era array, reinicializando...');
-        conversationHistory = [];
-      }
-
-      // Mostrar mensaje del usuario
-      addMessage(message, 'user');
+      addMessageToUI(message, 'user');
       userInput.value = '';
 
-      // Añadir mensaje del usuario al historial
-      conversationHistory.push({
-        role: "user",
-        content: message
-      });
+      conversationHistory.push({ role: "user", content: message });
+      localStorage.setItem('chatHistory', JSON.stringify(conversationHistory));
 
-      // Guardar en localStorage
-      try {
-        localStorage.setItem('chatHistory', JSON.stringify(conversationHistory));
-      } catch (e) {
-        console.error('Error guardando en localStorage:', e);
-      }
-
-      // Mostrar indicador de "escribiendo"
       const thinkingDiv = document.createElement('div');
       thinkingDiv.className = 'message assistant thinking';
       thinkingDiv.innerHTML = '<div class="message-content"><span class="typing-indicator">Claude està pensant...</span></div>';
@@ -282,64 +258,43 @@
       try {
         const response = await fetch('/api/chat', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            messages: conversationHistory
-          })
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: conversationHistory })
         });
 
-        // Quitar indicador de "escribiendo"
         thinkingDiv.remove();
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.error || `Error del servidor: ${response.status}`);
+          throw new Error(errorData.error || `Error ${response.status}`);
         }
 
         const data = await response.json();
         const assistantMessage = data.content[0].text;
 
-        // Añadir respuesta de Claude al chat
-        addMessage(assistantMessage, 'assistant');
-
-        // Añadir respuesta al historial
-        conversationHistory.push({
-          role: "assistant",
-          content: assistantMessage
-        });
-
-        // Guardar historial actualizado
-        try {
-          localStorage.setItem('chatHistory', JSON.stringify(conversationHistory));
-        } catch (e) {
-          console.error('Error guardando respuesta en localStorage:', e);
-        }
+        addMessageToUI(assistantMessage, 'assistant');
+        conversationHistory.push({ role: "assistant", content: assistantMessage });
+        localStorage.setItem('chatHistory', JSON.stringify(conversationHistory));
 
       } catch (error) {
         thinkingDiv.remove();
-        console.error('Error en sendMessage:', error);
-        addMessage(`Error: ${error.message}. Si us plau, torna-ho a intentar.`, 'error');
+        console.error('Error:', error);
+        addMessageToUI(`Error: ${error.message}. Si us plau, torna-ho a intentar.`, 'error');
       } finally {
-        // Rehabilitar input
         userInput.disabled = false;
         sendButton.disabled = false;
         userInput.focus();
       }
     }
 
-    function addMessage(text, sender) {
+    function addMessageToUI(text, sender) {
       const messageDiv = document.createElement('div');
       messageDiv.className = `message ${sender}`;
-      
       const contentDiv = document.createElement('div');
       contentDiv.className = 'message-content';
       contentDiv.textContent = text;
-      
       messageDiv.appendChild(contentDiv);
       chatMessages.appendChild(messageDiv);
-      
       scrollToBottom();
     }
 
@@ -347,7 +302,6 @@
       chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
-    // Enter para enviar
     userInput.addEventListener('keypress', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -355,17 +309,8 @@
       }
     });
 
-    // Botón de limpiar historial (opcional, lo puedes agregar en el HTML si quieres)
-    function clearHistory() {
-      if (confirm('Vols esborrar tot l\'historial de conversa?')) {
-        conversationHistory = [];
-        localStorage.removeItem('chatHistory');
-        chatMessages.innerHTML = '<div class="welcome-message">Hola Chester! Soc el teu assistent tècnic. En què puc ajudar-te?</div>';
-      }
-    }
-
-    // Focus al cargar
     window.addEventListener('load', () => {
+      loadHistory();
       userInput.focus();
       scrollToBottom();
     });
