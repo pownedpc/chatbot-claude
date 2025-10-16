@@ -24,20 +24,16 @@ app.post('/api/chat', async (req, res) => {
 
     let messages;
     
-    // ACEPTAR MÚLTIPLES FORMATOS
     if (req.body.messages && Array.isArray(req.body.messages)) {
-      // Formato 1: { messages: [...] }
       messages = req.body.messages;
       console.log('✅ Formato: messages array');
     } else if (req.body.message && req.body.conversationHistory) {
-      // Formato 2: { message: "...", conversationHistory: [...] }
       messages = [
         ...req.body.conversationHistory,
         { role: 'user', content: req.body.message }
       ];
       console.log('✅ Formato: message + conversationHistory');
     } else if (req.body.message) {
-      // Formato 3: { message: "..." }
       messages = [{ role: 'user', content: req.body.message }];
       console.log('✅ Formato: message simple');
     } else {
@@ -67,10 +63,9 @@ app.post('/api/chat', async (req, res) => {
 
     const assistantMessage = response.content[0].text;
 
-    // RESPONDER EN MÚLTIPLES FORMATOS (compatible con ambos frontends)
     res.json({
-      response: assistantMessage,  // Para formato antiguo
-      content: [{                   // Para formato nuevo
+      response: assistantMessage,
+      content: [{
         type: 'text',
         text: assistantMessage
       }]
@@ -80,4 +75,32 @@ app.post('/api/chat', async (req, res) => {
     console.error('❌ Error:', error);
 
     if (error.status === 401) {
-      return res.status(401).json({ error: 'API key invál
+      return res.status(401).json({ error: 'API key inválida' });
+    }
+
+    if (error.status === 429) {
+      return res.status(429).json({ error: 'Límite de tasa excedido' });
+    }
+
+    return res.status(500).json({
+      error: error.message
+    });
+  }
+});
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.options('/api/chat', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.status(200).end();
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
+  console.log(`🔑 API Key: ${process.env.ANTHROPIC_API_KEY ? '✅' : '❌'}`);
+});
